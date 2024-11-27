@@ -18,7 +18,7 @@ my_socket = socket.socket()
 my_socket.connect(("127.0.0.1", 8820))
 
 with open("sniffs.json", 'r') as file:
-    pac = file.read()  
+    pac = file.read()
     length = str(len(pac)).zfill(4)
     my_socket.send((length + pac).encode())
 
