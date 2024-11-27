@@ -2,15 +2,15 @@ from collections import Counter
 from scapy.all import *
 import json
 import socket
-
 snif = 10
-for i in range(snif):
-    packets = [sniff()]
-#packets = sniff(count = 10)
+#for i in range(snif):
+#    packets = [sniff()]
+packets = sniff(count = snif)
+#packet_summary = [str(pkt.summary()) for pkt in packets]
 packet_summary = [str(pkt.summary()) for pkt in packets]
 json_data = {"summary": packet_summary}
 
-print(packets.summary())
+print(packet_summary)
 with open("sniffs.json", "w") as file:
     json.dump(json_data, file)
 

@@ -15,15 +15,25 @@ if not length:
     server_socket.close()
     exit()
 
-data = client_socket.recv(int(length)).decode()
-
+total_length = int(length)
+data = b""
+while len(data) < total_length:
+    chunk = client_socket.recv(total_length - len(data))
+    if not chunk:
+        print("Connection closed before all data was received.")
+        client_socket.close()
+        server_socket.close()
+        exit()
+    data += chunk
+decoded_data = data.decode()
 
 with open('sniffs_serv.json', 'w') as file:
-        json.dump(data, file)
-        
-with open("sniffs_serv.json", 'r') as file:
-    data = json.load(file)
-print("Received data:", data)
+        json.dump(decoded_data, file)
+
+parsed_data = json.loads(decoded_data)
+print("Received data:")
+for idx, summary in enumerate(parsed_data['summary'], start=1):
+    print(f"{idx}. {summary}")
 
 client_socket.close()
 server_socket.close()
