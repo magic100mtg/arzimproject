@@ -2,6 +2,9 @@ from collections import Counter
 from scapy.all import *
 import json
 import socket
+
+# CR: filename
+
 snif = 10
 #for i in range(snif):
 #    packets = [sniff()]
@@ -17,7 +20,7 @@ with open("sniffs.json", "w") as file:
 my_socket = socket.socket()
 my_socket.connect(("127.0.0.1", 8820))
 
-with open("sniffs.json", 'r') as file:
+with open("sniffs.json", 'r') as file: # CR: why the dumping and reading instead of just sending it as is?
     pac = file.read()
     length = str(len(pac)).zfill(4)
     my_socket.send((length + pac).encode())
@@ -29,3 +32,5 @@ my_socket.close()
 #    data = json.load(file)
 #print("Received data:", data)
 
+
+# CR: if __name__ == "__main__"
