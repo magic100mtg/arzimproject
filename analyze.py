@@ -124,7 +124,7 @@ def detect_suspicious(json_string):
     Wrapper function to detect suspicious IPs from JSON string data.
     Returns list of suspicious IPs.
     """
-    suspicious = analyze_json_data(json_string, threshold=2)
+    suspicious = analyze_json_data(json_string, threshold=3)
     return list(suspicious.keys())
 
 def main():
@@ -133,7 +133,7 @@ def main():
     {"src_ip": "192.168.1.100", "dst_port": 22, "protocol": "TCP"},
     {"src_ip": "192.168.1.100", "dst_port": 443, "protocol": "TCP"},
     ])
-    suspicious_ips = analyze_json_data(json_string, threshold=2)
+    suspicious_ips = analyze_json_data(json_string, threshold=3)
     print(f"Suspicious IPs: {suspicious_ips}")
 
 if __name__ == "__main__":

@@ -15,7 +15,6 @@ def sendata(sock, data, header = "deiff"):
     if header == ('headersniff' or "headerreq" or "deiff"):
         to_send = json.dumps({"header": header, "data": data}).encode('utf-8')
         length = (len(to_send)).to_bytes(4, 'big')
-        #header = header.encode('utf-8') # need to do to only one bit
         sock.send(length + to_send)
     else:
         print("invaled header")

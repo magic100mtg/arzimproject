@@ -35,17 +35,10 @@ def sendsniffpack(my_socket):
         packet_data.append(info)
     print(packet_data)
 
-    #json_data = json.dumps(packet_data).encode()
     ne.sendata(my_socket, packet_data, "headersniff")
     print("File sent successfully!")
 
-    #snif = 1000
-    #packets = sniff(count = snif)
-    packet_summary = [str(pkt.summary()) for pkt in packets]
-    #json_data = (json.dumps({"summary": packet_summary, "header": "deiff"})).encode()
-    #print(packet_summary)
-    #ne.sendata(my_socket ,packet_summary, "headersniff")
-    #print("File sent successfully!")
+    
 
 def askforrecomdishens(my_socket, data):
     sos.block_ip_windows(data.decode())

@@ -18,24 +18,19 @@ def hendel(client_socket, client_address): # CR: english
     if (parsed_data["header"] == "headersniff"):
         with open(f'sniffs/{client_address}_sniffs_serv.json', 'ab') as file:
             file.write(data) # CR: save to some dictionary variable, not just write to a file, and it will probably be a DB in the future.
-
-        #parsed_data = json.loads(decoded_data)
         #print("Received data:")
         #for idx, summary in enumerate(parsed_data['summary'], start=1):
         #    print(f"{idx}. {summary}")
         client_socket.close() #if hie finds out that it need to send req just send them her.
-    #if (data["header"] == "headerreq"):
-    #parsed_data = json.loads(decoded_data)
-
     json_string = json.dumps(parsed_data["data"])
     recomdisehns = anlsist(json_string)
     print(recomdisehns)
-    #network.sendata(client_socket ,recomdisehns, "headersniff")
 
 def main():
-    
+    ip = "0.0.0.0"
+    port  = 8820
     server_socket = socket.socket()
-    server_socket.bind(("0.0.0.0", 8820)) # CR: port should probably be cli argument, not hardcoded, with default value. read up on Argparser library for python.
+    server_socket.bind((ip, port))
     server_socket.listen()
     print("Server is up and running")
     while(True):
