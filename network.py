@@ -18,6 +18,7 @@ def sendata(sock, data, header = "deiff"):
         sock.send(length + to_send)
     else:
         print("invaled header")
+        
         sock.send(length + data)
     
 def getdata(sock):

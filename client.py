@@ -5,6 +5,7 @@ import socket
 import network as ne
 import sos as sos
 from scapy.layers.inet import IP, TCP, UDP
+import pyuac
 
 
 def extract_packet_info(pkt):
@@ -41,6 +42,7 @@ def sendsniffpack(my_socket):
     
 
 def askforrecomdishens(my_socket, data):
+    print("god")
     sos.block_ip_windows(data.decode())
 
 
@@ -57,4 +59,11 @@ def main():
     my_socket.close()
 
 if __name__ == "__main__":
-    main()
+    if not pyuac.isUserAdmin():
+        print("Re-launching as admin!")
+        pyuac.runAsAdmin()
+    else:        
+        sos.block_ip_windows("10.10.49.123")
+        input()
+
+    

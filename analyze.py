@@ -77,7 +77,7 @@ class NetworkMonitor:
             print(f"Error processing packet data: {e}")
         return None
 
-def analyze_json_data(json_string, threshold=3):
+def analyze_json_data(data, threshold=3):
     """
     Analyze network traffic data from a JSON string.
     
@@ -93,7 +93,7 @@ def analyze_json_data(json_string, threshold=3):
     
     try:
         # Parse JSON data
-        data = json.loads(json_string)
+        #data = json.loads(json_string)
         
         # Handle both single packet and array of packets
         packets = data if isinstance(data, list) else [data]

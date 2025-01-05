@@ -7,9 +7,8 @@ import analyze
 def anlsist(parsed_data):
     analyze.detect_suspicious(parsed_data)
 
-def hendel(client_socket, client_address): # CR: english
+def hendel(client_socket: socket.socket, client_address): # CR: english
     
-
     print(f"Client connected from {client_address}")
     data = network.getdata(client_socket)
     decoded_data = data.decode('utf-8')
@@ -22,8 +21,8 @@ def hendel(client_socket, client_address): # CR: english
         #for idx, summary in enumerate(parsed_data['summary'], start=1):
         #    print(f"{idx}. {summary}")
         client_socket.close() #if hie finds out that it need to send req just send them her.
-    json_string = json.dumps(parsed_data["data"])
-    recomdisehns = anlsist(json_string)
+    #json_string = json.dumps(parsed_data["data"])
+    recomdisehns = anlsist(parsed_data["data"])
     print(recomdisehns)
 
 def main():
