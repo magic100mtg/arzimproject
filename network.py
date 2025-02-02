@@ -11,15 +11,21 @@ def recvall(sock, length):
         data += chunk
     return data
 
-def sendata(sock, data, header = "deiff"):
-    if header == ('headersniff' or "headerreq" or "deiff"):
-        to_send = json.dumps({"header": header, "data": data}).encode('utf-8')
+def sendata(sock, data = None, header = "deiff"):
+
+    if header == ('headersniff' or "deiff"):
+        to_send = (json.dumps({"header": header, "data": data})).encode('utf-8')
+        length = (len(to_send)).to_bytes(4, 'big')
+        sock.send(length + to_send)
+    elif(header == "headerreq"):
+        to_send = (json.dumps({"header": header, "data": None})).encode('utf-8')
         length = (len(to_send)).to_bytes(4, 'big')
         sock.send(length + to_send)
     else:
         print("invaled header")
         
-        sock.send(length + data)
+        #sock.send(length + data)
+
     
 def getdata(sock):
     length = int.from_bytes(recvall(sock, 4), 'big')

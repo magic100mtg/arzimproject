@@ -31,6 +31,7 @@ class NetworkMonitor:
 
     def analyze_ip(self, ip):
         data = self.connections[ip]
+        #print(type(data['ports']))
         analysis = {
             'ip': ip,
             'unique_ports': len(data['ports']),
@@ -77,7 +78,7 @@ class NetworkMonitor:
             print(f"Error processing packet data: {e}")
         return None
 
-def analyze_json_data(data, threshold=3):
+def analyze_json_data(json_string, threshold=3):
     """
     Analyze network traffic data from a JSON string.
     
@@ -93,7 +94,7 @@ def analyze_json_data(data, threshold=3):
     
     try:
         # Parse JSON data
-        #data = json.loads(json_string)
+        data = json.loads(json_string)
         
         # Handle both single packet and array of packets
         packets = data if isinstance(data, list) else [data]
@@ -133,8 +134,7 @@ def main():
     {"src_ip": "192.168.1.100", "dst_port": 22, "protocol": "TCP"},
     {"src_ip": "192.168.1.100", "dst_port": 443, "protocol": "TCP"},
     ])
-    suspicious_ips = analyze_json_data(json_string, threshold=3)
-    print(f"Suspicious IPs: {suspicious_ips}")
+    print(detect_suspicious(json_string))
 
 if __name__ == "__main__":
     main()

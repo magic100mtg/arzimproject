@@ -1,11 +1,11 @@
 from collections import Counter
-from scapy.all import *
+from scapy.all import sniff
 import json
 import socket
 import network as ne
-import sos as sos
+import block_ip as block_ip
 from scapy.layers.inet import IP, TCP, UDP
-import pyuac
+import threading
 
 
 def extract_packet_info(pkt):
@@ -38,20 +38,40 @@ def sendsniffpack(my_socket):
 
     ne.sendata(my_socket, packet_data, "headersniff")
     print("File sent successfully!")
+    
 
     
 
-def askforrecomdishens(my_socket, data):
-    print("god")
-    sos.block_ip_windows(data.decode())
+def liesenforrecomdishens(my_socket):
+    ip = "0.0.0.0"
+    port  = 8840
+    listen_socket = socket.socket() 
+    listen_socket.bind((ip, port))
+    listen_socket.listen()
+    server_socket, server_address = listen_socket.accept()
+    print(f"Client connected from {server_address}")
+    data = ne.getdata(server_socket)
+    parsed_data = json.loads(data.decode('utf-8'))
 
+    print(parsed_data)
+    
+def doreq(recomdisehns):
+    return "10.0.0.139"
+    
 
 def main():
-
     my_socket = socket.socket()
     my_socket.connect(("127.0.0.1", 8820))
+    while(True):
+        sendsniff = threading.Thread(target=sendsniffpack, args=(my_socket,))
+        sendsniff.start()
+        lisentoreq = threading.Thread(target=liesenforrecomdishens, args=(my_socket,))
+        lisentoreq.start()
+
+    
     #data = ne.getdata(my_socket)
     sendsniffpack(my_socket)
+    ###askforrecomdishens(my_socket)
     #if data["header"] == "headersniff":
     #     sendsniffpack(my_socket) #call onl wit te eder, need to pass it?
     #if data["header"] == "headerreq":
@@ -59,11 +79,5 @@ def main():
     my_socket.close()
 
 if __name__ == "__main__":
-    if not pyuac.isUserAdmin():
-        print("Re-launching as admin!")
-        pyuac.runAsAdmin()
-    else:        
-        sos.block_ip_windows("10.10.49.123")
-        input()
-
+    main()
     

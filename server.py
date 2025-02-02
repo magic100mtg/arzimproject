@@ -11,8 +11,8 @@ def hendel(client_socket: socket.socket, client_address): # CR: english
     
     print(f"Client connected from {client_address}")
     data = network.getdata(client_socket)
-    decoded_data = data.decode('utf-8')
-    parsed_data = json.loads(decoded_data)
+    parsed_data = json.loads(data.decode('utf-8'))
+    print(parsed_data["data"])
     
     if (parsed_data["header"] == "headersniff"):
         with open(f'sniffs/{client_address}_sniffs_serv.json', 'ab') as file:
@@ -20,10 +20,22 @@ def hendel(client_socket: socket.socket, client_address): # CR: english
         #print("Received data:")
         #for idx, summary in enumerate(parsed_data['summary'], start=1):
         #    print(f"{idx}. {summary}")
+        recomdisehns = anlsist(parsed_data["data"])
+        if(recomdisehns == True):
+            sec_socket = socket.socket()
+            sec_socket.connect(("127.0.0.1", 8840))
+            network.sendata(sec_socket, recomdisehns, "headerreq")
+            sec_socket.close()
+        print(recomdisehns)
         client_socket.close() #if hie finds out that it need to send req just send them her.
+
     #json_string = json.dumps(parsed_data["data"])
-    recomdisehns = anlsist(parsed_data["data"])
-    print(recomdisehns)
+    elif(parsed_data["header"] == "headerreq"):
+        with open(f'sniffs/{client_address}_sniffs_serv.json', 'ab') as file:
+            file.read()
+        recomdisehns = anlsist(file)
+        network.sendata(client_socket, recomdisehns, "headerreq")
+        print(recomdisehns)
 
 def main():
     ip = "0.0.0.0"
