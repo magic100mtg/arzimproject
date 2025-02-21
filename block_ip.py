@@ -6,6 +6,7 @@ def block_ip_windows(ip_address):
     """
     Blocks the specified IP address using Windows Firewall.
     """
+    
     command= f"powershell.exe Start-process -Verb RunAs netsh -ArgumentList advfirewall, firewall, add, rule, name='Block_{ip_address}', dir=in, action=block, remoteip={ip_address}"
     print(command)
     try:

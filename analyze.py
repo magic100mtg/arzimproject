@@ -8,136 +8,234 @@ class NetworkMonitor:
     def __init__(self, threshold=3):
         self.threshold = threshold
         self.connections = defaultdict(lambda: {
-            'ports': set(),
-            'protocols': set(),
+            'ports': [],
+            'protocols': [],
             'connection_count': 0,
             'port_categories': defaultdict(int)
         })
-        
+
     def categorize_port(self, port):
-        well_known = {
-            80: 'HTTP', 443: 'HTTPS', 53: 'DNS', 
-            22: 'SSH', 21: 'FTP', 25: 'SMTP',
-            5353: 'mDNS', 1900: 'UPNP'
-        }
-        if port in well_known:
-            return well_known[port]
-        elif port < 1024:
-            return 'Well-Known'
-        elif port < 49152:
-            return 'Registered'
-        else:
-            return 'Dynamic/Private'
+        """Simple categorization for common ports."""
+        well_known_ports = {80: 'HTTP', 443: 'HTTPS', 53: 'DNS', 22: 'SSH', 21: 'FTP', 25: 'SMTP'}
+        return well_known_ports.get(port, 'Other')
 
     def analyze_ip(self, ip):
+        """Analyze connections for a specific IP and detect risk factors."""
         data = self.connections[ip]
-        #print(type(data['ports']))
-        analysis = {
+        unique_ports = len(set(data['ports']))
+        protocols = list(set(data['protocols']))
+        risk_factors = []
+
+        if unique_ports >= self.threshold:
+            risk_factors.append('Multiple Ports')
+        if any(port >= 49152 for port in data['ports']):
+            risk_factors.append('High Port Numbers')
+        if len(protocols) > 1:
+            risk_factors.append('Multiple Protocols')
+        if data['connection_count'] / unique_ports > 3:
+            risk_factors.append('Repeated Connections')
+
+        return {
             'ip': ip,
-            'unique_ports': len(data['ports']),
-            'protocols': list(data['protocols']),
-            'ports': sorted(list(data['ports'])),
-            'port_categories': dict(data['port_categories']),
+            'unique_ports': unique_ports,
+            'protocols': protocols,
+            'ports': sorted(set(data['ports'])),
             'connection_count': data['connection_count'],
-            'risk_factors': []
+            'risk_factors': risk_factors
         }
-        
-        if len(data['ports']) >= self.threshold:
-            analysis['risk_factors'].append('Multiple Ports')
-        if any(p >= 49152 for p in data['ports']):
-            analysis['risk_factors'].append('High Port Numbers')
-        if len(data['protocols']) > 1:
-            analysis['risk_factors'].append('Multiple Protocols')
-        if data['connection_count'] / len(data['ports']) > 3:
-            analysis['risk_factors'].append('Repeated Connections')
-            
-        return analysis
 
     def process_packet_data(self, packet_data):
-        """
-        Process a single packet's data from JSON format
-        
-        Args:
-            packet_data (dict): Dictionary containing packet information
-        """
-        try:
-            src_ip = packet_data.get('src_ip')
-            dst_port = packet_data.get('dst_port')
-            protocol = packet_data.get('protocol')
-            
-            if src_ip and dst_port and protocol:
-                ip_data = self.connections[src_ip]
-                ip_data['ports'].add(dst_port)
-                ip_data['protocols'].add(protocol)
-                ip_data['connection_count'] += 1
-                ip_data['port_categories'][self.categorize_port(dst_port)] += 1
-                
-                if len(ip_data['ports']) >= self.threshold:
-                    return self.analyze_ip(src_ip)
-        except Exception as e:
-            print(f"Error processing packet data: {e}")
+        """Process packet data and update the connection data."""
+        src_ip = packet_data.get('src_ip')
+        dst_port = packet_data.get('dst_port')
+        protocol = packet_data.get('protocol')
+
+        if src_ip and dst_port and protocol:
+            ip_data = self.connections[src_ip]
+            ip_data['ports'].append(dst_port)
+            ip_data['protocols'].append(protocol)
+            ip_data['connection_count'] += 1
+            ip_data['port_categories'][self.categorize_port(dst_port)] += 1
+
+            if len(set(ip_data['ports'])) >= self.threshold:
+                return self.analyze_ip(src_ip)
         return None
 
+
 def analyze_json_data(json_string, threshold=3):
-    """
-    Analyze network traffic data from a JSON string.
-    
-    Args:
-        json_string (str): JSON string containing network traffic data
-        threshold (int): Number of unique ports to trigger suspicious activity
-    
-    Returns:
-        dict: Dictionary of suspicious IPs and their analysis
-    """
+    """Main function to analyze JSON data."""
     monitor = NetworkMonitor(threshold)
     suspicious_ips = {}
-    
+
     try:
-        # Parse JSON data
         data = json.loads(json_string)
-        
-        # Handle both single packet and array of packets
-        packets = data if isinstance(data, list) else [data]
-        
-        print(f"Processing {len(packets)} packets...")
-        for packet in packets:
+        for packet in data:
             analysis = monitor.process_packet_data(packet)
             if analysis and analysis['ip'] not in suspicious_ips:
                 suspicious_ips[analysis['ip']] = analysis
                 print(f"\nSuspicious activity detected from {analysis['ip']}:")
                 print(f"Risk Factors: {', '.join(analysis['risk_factors'])}")
-                print(f"Protocols: {', '.join(analysis['protocols'])}")
                 print(f"Ports: {analysis['ports']}")
                 print(f"Total Connections: {analysis['connection_count']}")
         
         return suspicious_ips
-        
+
     except json.JSONDecodeError as e:
         print(f"Error decoding JSON string: {e}")
         return {}
-    except Exception as e:
-        print(f"Error processing data: {e}")
-        return {}
 
-# Example of how to use it in your project:
 def detect_suspicious(json_string):
-    """
-    Wrapper function to detect suspicious IPs from JSON string data.
-    Returns list of suspicious IPs.
-    """
+    """Wrapper function to detect suspicious IPs."""
     suspicious = analyze_json_data(json_string, threshold=3)
     return list(suspicious.keys())
 
+
 def main():
     json_string = json.dumps([
-    {"src_ip": "192.168.1.100", "dst_port": 80, "protocol": "TCP"},
-    {"src_ip": "192.168.1.100", "dst_port": 22, "protocol": "TCP"},
-    {"src_ip": "192.168.1.100", "dst_port": 443, "protocol": "TCP"},
+        {"src_ip": "192.168.1.100", "dst_port": 80, "protocol": "TCP"},
+        {"src_ip": "192.168.1.100", "dst_port": 22, "protocol": "TCP"},
+        {"src_ip": "192.168.1.100", "dst_port": 443, "protocol": "TCP"},
     ])
     print(detect_suspicious(json_string))
 
+
 if __name__ == "__main__":
     main()
+
+# class NetworkMonitor:
+#     def __init__(self, threshold=3):
+#         self.threshold = threshold
+#         self.connections = defaultdict(lambda: {
+#             'ports': set(),
+#             'protocols': set(),
+#             'connection_count': 0,
+#             'port_categories': defaultdict(int)
+#         })
+        
+#     def categorize_port(self, port):
+#         well_known = {
+#             80: 'HTTP', 443: 'HTTPS', 53: 'DNS', 
+#             22: 'SSH', 21: 'FTP', 25: 'SMTP',
+#             5353: 'mDNS', 1900: 'UPNP'
+#         }
+#         if port in well_known:
+#             return well_known[port]
+#         elif port < 1024:
+#             return 'Well-Known'
+#         elif port < 49152:
+#             return 'Registered'
+#         else:
+#             return 'Dynamic/Private'
+
+#     def analyze_ip(self, ip):
+#         data = self.connections[ip]
+#         #print(type(data['ports']))
+#         analysis = {
+#             'ip': ip,
+#             'unique_ports': len(data['ports']),
+#             'protocols': list(data['protocols']),
+#             'ports': sorted(list(data['ports'])),
+#             'port_categories': dict(data['port_categories']),
+#             'connection_count': data['connection_count'],
+#             'risk_factors': []
+#         }
+        
+#         if len(data['ports']) >= self.threshold:
+#             analysis['risk_factors'].append('Multiple Ports')
+#         if any(p >= 49152 for p in data['ports']):
+#             analysis['risk_factors'].append('High Port Numbers')
+#         if len(data['protocols']) > 1:
+#             analysis['risk_factors'].append('Multiple Protocols')
+#         if data['connection_count'] / len(data['ports']) > 3:
+#             analysis['risk_factors'].append('Repeated Connections')
+            
+#         return analysis
+
+#     def process_packet_data(self, packet_data):
+#         """
+#         Process a single packet's data from JSON format
+        
+#         Args:
+#             packet_data (dict): Dictionary containing packet information
+#         """
+#         try:
+#             src_ip = packet_data.get('src_ip')
+#             dst_port = packet_data.get('dst_port')
+#             protocol = packet_data.get('protocol')
+            
+#             if src_ip and dst_port and protocol:
+#                 ip_data = self.connections[src_ip]
+#                 ip_data['ports'].add(dst_port)
+#                 ip_data['protocols'].add(protocol)
+#                 ip_data['connection_count'] += 1
+#                 ip_data['port_categories'][self.categorize_port(dst_port)] += 1
+                
+#                 if len(ip_data['ports']) >= self.threshold:
+#                     return self.analyze_ip(src_ip)
+#         except Exception as e:
+#             print(f"Error processing packet data: {e}")
+#         return None
+
+# def analyze_json_data(json_string, threshold=3):
+#     """
+#     Analyze network traffic data from a JSON string.
+    
+#     Args:
+#         json_string (str): JSON string containing network traffic data
+#         threshold (int): Number of unique ports to trigger suspicious activity
+    
+#     Returns:
+#         dict: Dictionary of suspicious IPs and their analysis
+#     """
+#     monitor = NetworkMonitor(threshold)
+#     suspicious_ips = {}
+    
+#     try:
+#         # Parse JSON data
+#         data = json.loads(json_string)
+        
+#         # Handle both single packet and array of packets
+#         packets = data if isinstance(data, list) else [data]
+        
+#         print(f"Processing {len(packets)} packets...")
+#         for packet in packets:
+#             analysis = monitor.process_packet_data(packet)
+#             if analysis and analysis['ip'] not in suspicious_ips:
+#                 suspicious_ips[analysis['ip']] = analysis
+#                 print(f"\nSuspicious activity detected from {analysis['ip']}:")
+#                 print(f"Risk Factors: {', '.join(analysis['risk_factors'])}")
+#                 print(f"Protocols: {', '.join(analysis['protocols'])}")
+#                 print(f"Ports: {analysis['ports']}")
+#                 print(f"Total Connections: {analysis['connection_count']}")
+        
+#         return suspicious_ips
+        
+#     except json.JSONDecodeError as e:
+#         print(f"Error decoding JSON string: {e}")
+#         return {}
+#     except Exception as e:
+#         print(f"Error processing data: {e}")
+#         return {}
+
+# # Example of how to use it in your project:
+# def detect_suspicious(json_string):
+#     """
+#     Wrapper function to detect suspicious IPs from JSON string data.
+#     Returns list of suspicious IPs.
+#     """
+#     suspicious = analyze_json_data(json_string, threshold=3)
+#     return list(suspicious.keys())
+
+# def main():
+#     json_string = json.dumps([
+#     {"src_ip": "192.168.1.100", "dst_port": 80, "protocol": "TCP"},
+#     {"src_ip": "192.168.1.100", "dst_port": 22, "protocol": "TCP"},
+#     {"src_ip": "192.168.1.100", "dst_port": 443, "protocol": "TCP"},
+#     ])
+#     print(detect_suspicious(json_string))
+
+# if __name__ == "__main__":
+#     main()
 
 
 

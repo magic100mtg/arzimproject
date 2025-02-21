@@ -34,8 +34,8 @@ def sendsniffpack(my_socket):
     for pkt in packets:
         info = extract_packet_info(pkt)
         packet_data.append(info)
-    print(packet_data)
-
+    #print(packet_data)
+    packet_data = ne.AES_encrypt(packet_data, iv_and_aes_kay)
     ne.sendata(my_socket, packet_data, "headersniff")
     print("File sent successfully!")
     
@@ -52,16 +52,24 @@ def liesenforrecomdishens(my_socket):
     print(f"Client connected from {server_address}")
     data = ne.getdata(server_socket)
     parsed_data = json.loads(data.decode('utf-8'))
-
+    do_req(parsed_data)
     print(parsed_data)
     
-def doreq(recomdisehns):
-    return "10.0.0.139"
+def do_req(recomdisehns):
+    block_ip.block_ip_windows(recomdisehns)
     
 
 def main():
     my_socket = socket.socket()
     my_socket.connect(("127.0.0.1", 8820))
+    
+    ne.RSA_start()
+    ne.send_pubkey(my_socket)
+
+    encrypt_aes_key = ne.getdata(my_socket)
+    iv_and_aes_key = ne.RSA_decrypt(encrypt_aes_key)
+    
+
     while(True):
         sendsniff = threading.Thread(target=sendsniffpack, args=(my_socket,))
         sendsniff.start()
