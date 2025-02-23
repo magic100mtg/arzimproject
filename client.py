@@ -7,6 +7,17 @@ import block_ip as block_ip
 from scapy.layers.inet import IP, TCP, UDP
 import threading
 
+PUBKEY = """-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuHh6kFE3kxbl5iPSYar1
+WB6jBYl1YGM4dzChs665UBnBeBkomJvyFfucFx96nppa4iH3OaAW40iMzmzwia1N
+gwzT5XAIEorAleenecsyymmkiWW/Q0yfH7LqpVyqWR/eQUxw36dLfS0kfmZ8l9/6
+NshbNB6Ei6yU92W31MxxbVYQG033KSDr93ek7WfF81c21W+3iMBXYpCazKUvwCFw
+RZAcV9k0LBU7HhuAJsH8ullfW5/FaFWyesEwXHyqMa5oNYYReKOhUibwPA7bOMKF
+9+ILQlbo4SkCJ/nt1hUmLjg8Him7JF7NAiyAUzk5aKX5NWBKleFDvRNb6vEzKl8A
+xwIDAQAB
+-----END PUBLIC KEY-----""" 
+
+
 
 def extract_packet_info(pkt):
     if IP in pkt:
