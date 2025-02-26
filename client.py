@@ -7,15 +7,6 @@ import block_ip as block_ip
 from scapy.layers.inet import IP, TCP, UDP
 import threading
 
-PUBKEY = """-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuHh6kFE3kxbl5iPSYar1
-WB6jBYl1YGM4dzChs665UBnBeBkomJvyFfucFx96nppa4iH3OaAW40iMzmzwia1N
-gwzT5XAIEorAleenecsyymmkiWW/Q0yfH7LqpVyqWR/eQUxw36dLfS0kfmZ8l9/6
-NshbNB6Ei6yU92W31MxxbVYQG033KSDr93ek7WfF81c21W+3iMBXYpCazKUvwCFw
-RZAcV9k0LBU7HhuAJsH8ullfW5/FaFWyesEwXHyqMa5oNYYReKOhUibwPA7bOMKF
-9+ILQlbo4SkCJ/nt1hUmLjg8Him7JF7NAiyAUzk5aKX5NWBKleFDvRNb6vEzKl8A
-xwIDAQAB
------END PUBLIC KEY-----""" 
 
 
 
@@ -38,6 +29,11 @@ def extract_packet_info(pkt):
             }
 
 def sendsniffpack(my_socket):
+    enclient = ne.encrypted_client()
+    encrypt_aes_key = ne.getdata(my_socket)
+    iv_and_aes_key = enclient.RSA_decrypt(encrypt_aes_key)
+    enclient.set_ARS_key(iv_and_aes_key)
+
     snif = 100
     packets = sniff(count=snif, filter="ip")
     packet_data = []
@@ -46,8 +42,8 @@ def sendsniffpack(my_socket):
         info = extract_packet_info(pkt)
         packet_data.append(info)
     #print(packet_data)
-    packet_data = ne.AES_encrypt(packet_data, iv_and_aes_kay)
-    ne.sendata(my_socket, packet_data, "headersniff")
+
+    enclient.send_encrypt(packet_data, "headersniff")
     print("File sent successfully!")
     
 
@@ -61,6 +57,7 @@ def liesenforrecomdishens(my_socket):
     listen_socket.listen()
     server_socket, server_address = listen_socket.accept()
     print(f"Client connected from {server_address}")
+
     data = ne.getdata(server_socket)
     parsed_data = json.loads(data.decode('utf-8'))
     do_req(parsed_data)
@@ -71,16 +68,10 @@ def do_req(recomdisehns):
     
 
 def main():
+    
     my_socket = socket.socket()
     my_socket.connect(("127.0.0.1", 8820))
     
-    ne.RSA_start()
-    ne.send_pubkey(my_socket)
-
-    encrypt_aes_key = ne.getdata(my_socket)
-    iv_and_aes_key = ne.RSA_decrypt(encrypt_aes_key)
-    
-
     while(True):
         sendsniff = threading.Thread(target=sendsniffpack, args=(my_socket,))
         sendsniff.start()

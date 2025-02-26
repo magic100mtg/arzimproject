@@ -7,6 +7,12 @@ from Crypto.Signature import pkcs1_15
 from Crypto.Hash import SHA256
 from Crypto.Util.Padding import pad, unpad
 
+def start_RSA(): #do on your dvice
+    enclient = encrypted_client()
+    enclient.RSA_start()
+    enserver = encrypted_server()
+    enserver.RSA_start()
+    
 
 def recvall(sock, length) -> bytes:
 
@@ -32,7 +38,6 @@ def sendata(sock, data = None, header = "deiff"):
         sock.send(length + to_send)
     else:
         print("invaled header")
-        
         #sock.send(length + data)
 
 def getdata(sock):
@@ -43,10 +48,21 @@ def getheader(sock):
     return "h"
 
 class encrypt:
+
+    def __init__(self): 
+        self.enc_rsa_pubkey = "enc_rsa_pubkey.pem"
+        self.enc_rsa_privatekey = "enc_rsa_privatekey.pem"
+    
     def RSA_get_pubkey(self):
-        with open("enc_rsa_pubkey.pem", "rb") as key_file:  
+        with open(self.enc_rsa_pubkey, "rb") as key_file:  
             pubkey = key_file.read()
         return pubkey
+    
+    def RSA_get_privet(self):
+        with open(self.enc_rsa_privatekey, "rb") as key_file:
+            private_key = RSA.import_key(key_file.read())
+        return private_key
+    
     def AES_start(self):
         aes_key = get_random_bytes(16)
         iv = get_random_bytes(16)
@@ -67,45 +83,72 @@ class encrypt:
         rsakey = RSA.generate(2048) 
         rsakey_data = rsakey.export_key() 
         rsakey_pub_data = rsakey.public_key().export_key() 
-        with open("enc_rsa_privatekey", "wb") as key_file: 
+        with open(self.enc_rsa_privatekey, "wb") as key_file: 
             key_file.write(rsakey_data) 
-        with open("enc_rsa_pubkey.pem", "wb") as key_file:  
+        with open(self.enc_rsa_pubkey, "wb") as key_file:  
             key_file.write(rsakey_pub_data)
 
     def send_pubkey(self, sock):
         sendata(sock = sock, data = encrypt.RSA_get_pubkey(self), header = "pubkey")
 
     def RSA_encrypt(self, data, publickey):
-        rsa_cipher = PKCS1_OAEP.new(publickey.public_key())
+        rsa_key = RSA.import_key(publickey)
+        rsa_cipher = PKCS1_OAEP.new(rsa_key)
         enc_msg = rsa_cipher.encrypt(data)
         return enc_msg
 
-
     def RSA_decrypt(self, enc_msg):
-        with open("enc_rsa_privatekey.pem", "rb") as key_file:
-            private_key = RSA.import_key(key_file.read())
-        rsa_cipher = PKCS1_OAEP.new(private_key)
-        msg = rsa_cipher.encrypt(enc_msg)
+        rsa_cipher = PKCS1_OAEP.new(encrypt.RSA_get_privet(self))
+        msg = rsa_cipher.decrypt(enc_msg)
         return msg
 
 
-class encryptedserver(encrypt):
+class encrypted_server(encrypt):
     def __init__(self):
         self.encrypt_instance = encrypt()  # Create an instance of Encrypt class
         self.aes_key, self.iv = self.encrypt_instance.AES_start()
         self.iv_and_aes_key = {"aes_key": self.aes_key, "iv": self.iv}
+        super().__init__()  # Call parent constructor
+        self.enc_rsa_pubkey = "enc_rsa_pubkey_server.pem"
+        self.enc_rsa_privatekey = "enc_rsa_privatekey_server.pem"
 
-    def send_encrypt(self , sock, data = None, header = "deiff"):
-        ciphertext, msg = self.encrypt_instance.AES_encrypt(data, self.iv_and_aes_key)
-        sendata(sock, data=ciphertext, header="headerreq")
+    def send_AES_encrypt(self , sock, data = None, header = "deiff"):
+        ciphertext = self.encrypt_instance.AES_encrypt(data, self.iv_and_aes_key)
+        sendata(sock, ciphertext, header)
     
-    def reciv_encrypt(self, sock):
+    def reciv_AES_encrypt(self, sock):
         data = getdata(sock)
         decrypt_data =  self.encrypt_instance.AES_decrypt(data, self.iv_and_aes_key)
         parsed_data = json.loads(decrypt_data.decode('utf-8'))
         return parsed_data
         
+class encrypted_client(encrypt):
+    def __init__(self):
+        self.encrypt_instance = encrypt()  # Create an instance of Encrypt class
 
+        super().__init__()  # Call parent constructor
+        self.enc_rsa_pubkey = "enc_rsa_pubkey_client.pem"
+        self.enc_rsa_privatekey = "enc_rsa_privatekey_client.pem"
+
+
+    def set_ARS_key(self, ARS_key):
+        self.ARS_key = ARS_key
+    
+    def send_encrypt(self , sock, data = None, header = "deiff"):
+        ciphertext = self.encrypt_instance.AES_encrypt(data, self.ARS_key)
+        sendata(sock, ciphertext, header)
+    
+    def reciv_encrypt(self, sock):
+        data = getdata(sock)
+        decrypt_data =  self.encrypt_instance.AES_decrypt(data, self.ARS_key)
+        parsed_data = json.loads(decrypt_data.decode('utf-8'))
+        return parsed_data
+    
+    
+    
+
+
+    
 
 
         

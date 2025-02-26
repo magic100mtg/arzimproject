@@ -1,3 +1,6 @@
 sniffs/
 __pycache__/
 .vscode/
+enc_rsa_privatekey_client.pem
+enc_rsa_privatekey_server.pem
+
