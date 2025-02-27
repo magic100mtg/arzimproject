@@ -3,6 +3,8 @@ import socket
 import threading
 import network as ne
 import analyze
+import base64
+
 #CR: filename
 
 class Server:
@@ -19,9 +21,10 @@ class Server:
         print(f"Client connected from {client_address}")
         encryptit = ne.encrypt()
         enserver = ne.encrypted_server()
-        iv_and_aes_key_bytes = json.dumps(enserver.iv_and_aes_key).encode('utf-8')
+        iv_and_aes_key_bytes = json.dumps(enserver.iv_and_aes_key_b64).encode('utf-8')
         tosend_encrypt_AES_key = encryptit.RSA_encrypt(iv_and_aes_key_bytes, self.pubkey_client)
-        ne.sendata(client_socket, tosend_encrypt_AES_key)
+        tosend_encrypt_AES_key_b64 = base64.b64encode(tosend_encrypt_AES_key).decode('utf-8')
+        ne.sendata(client_socket, tosend_encrypt_AES_key_b64)
 
         parsed_data = enserver.reciv_AES_encrypt(client_socket)
         if (parsed_data["header"] == "headersniff"):

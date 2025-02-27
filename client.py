@@ -6,6 +6,7 @@ import network as ne
 import block_ip as block_ip
 from scapy.layers.inet import IP, TCP, UDP
 import threading
+import base64
 
 
 
@@ -30,7 +31,8 @@ def extract_packet_info(pkt):
 
 def sendsniffpack(my_socket):
     enclient = ne.encrypted_client()
-    encrypt_aes_key = ne.getdata(my_socket)
+    data = ne.getdata(my_socket)
+    encrypt_aes_key = data["data"]["aes_key"].encode("utf-8")
     iv_and_aes_key = enclient.RSA_decrypt(encrypt_aes_key)
     enclient.set_ARS_key(iv_and_aes_key)
 
@@ -59,9 +61,8 @@ def liesenforrecomdishens(my_socket):
     print(f"Client connected from {server_address}")
 
     data = ne.getdata(server_socket)
-    parsed_data = json.loads(data.decode('utf-8'))
-    do_req(parsed_data)
-    print(parsed_data)
+    do_req(data)
+    print(data)
     
 def do_req(recomdisehns):
     block_ip.block_ip_windows(recomdisehns)
@@ -72,15 +73,15 @@ def main():
     my_socket = socket.socket()
     my_socket.connect(("127.0.0.1", 8820))
     
-    while(True):
-        sendsniff = threading.Thread(target=sendsniffpack, args=(my_socket,))
-        sendsniff.start()
-        lisentoreq = threading.Thread(target=liesenforrecomdishens, args=(my_socket,))
-        lisentoreq.start()
+    #while(True):
+    sendsniff = threading.Thread(target=sendsniffpack, args=(my_socket,))
+    sendsniff.start()
+    #lisentoreq = threading.Thread(target=liesenforrecomdishens, args=(my_socket,))
+    #lisentoreq.start()
 
     
     #data = ne.getdata(my_socket)
-    sendsniffpack(my_socket)
+    #sendsniffpack(my_socket)
     ###askforrecomdishens(my_socket)
     #if data["header"] == "headersniff":
     #     sendsniffpack(my_socket) #call onl wit te eder, need to pass it?
