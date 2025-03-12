@@ -31,10 +31,12 @@ def extract_packet_info(pkt):
 
 def sendsniffpack(my_socket):
     enclient = ne.encrypted_client()
-    data = ne.getdata(my_socket)
-    encrypt_aes_key = data["data"]["aes_key"].encode("utf-8")
-    iv_and_aes_key = enclient.RSA_decrypt(encrypt_aes_key)
-    enclient.set_ARS_key(iv_and_aes_key)
+    enc_aes_key_received = ne.getdata(my_socket)["data"]
+    aes_key_iv = enclient.RSA_decrypt(base64.b64decode(enc_aes_key_received))
+    aes_key = aes_key_iv[:16]
+    iv = aes_key_iv[16:]
+
+    enclient.set_ARS_key(aes_key, iv)
 
     snif = 100
     packets = sniff(count=snif, filter="ip")
@@ -73,9 +75,9 @@ def main():
     my_socket = socket.socket()
     my_socket.connect(("127.0.0.1", 8820))
     
-    #while(True):
-    sendsniff = threading.Thread(target=sendsniffpack, args=(my_socket,))
-    sendsniff.start()
+    while(True):
+        sendsniff = threading.Thread(target=sendsniffpack, args=(my_socket,))
+        sendsniff.start()
     #lisentoreq = threading.Thread(target=liesenforrecomdishens, args=(my_socket,))
     #lisentoreq.start()
 
