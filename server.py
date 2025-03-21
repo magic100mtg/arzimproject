@@ -23,16 +23,18 @@ class Server:
         enserver = ne.encrypted_server()
         iv_and_aes_key_bytes = json.dumps(enserver.iv_and_aes_key_b64).encode('utf-8')
         tosend_encrypt_AES_key = encryptit.RSA_encrypt(iv_and_aes_key_bytes, self.pubkey_client)
-        tosend_encrypt_AES_key_b64 = base64.b64encode(tosend_encrypt_AES_key).decode('utf-8')
+        tosend_encrypt_AES_key_b64 = (base64.b64encode(tosend_encrypt_AES_key)).decode('utf-8')
         ne.sendata(client_socket, tosend_encrypt_AES_key_b64)
-
+        print("all good")
         parsed_data = enserver.reciv_AES_encrypt(client_socket)
-        if (parsed_data["header"] == "headersniff"):
-            with open(f'sniffs/{client_address}_sniffs_serv.json', 'ab') as file:
-                file.write(parsed_data["data"]) # CR: save to some dictionary variable, not just write to a file, and it will probably be a DB in the future.
+        print(parsed_data)
+        if (parsed_data['header'] == "headersniff"): # type: ignore
+            #with open(f'sniffs/{client_address}_sniffs_serv.json', 'ab') as file:
+            #    file.write(parsed_data["data"]) # CR: save to some dictionary variable, not just write to a file, and it will probably be a DB in the future.
 
             #recomdisehns = anlsist(parsed_data["data"])
-            recomdisehns = parsed_data["data"]
+            recomdisehns = parsed_data["data"] # type: ignore
+            print(recomdisehns)
             if(recomdisehns == True):
                 sec_socket = socket.socket()
                 sec_socket.connect(("127.0.0.1", 8840))
@@ -42,7 +44,7 @@ class Server:
             client_socket.close() #if hie finds out that it need to send req just send them her.
 
         #json_string = json.dumps(parsed_data["data"])
-        elif(parsed_data["header"] == "headerreq"):
+        elif(parsed_data["header"] == "headerreq"): # type: ignore
             with open(f'sniffs/{client_address}_sniffs_serv.json', 'ab') as file:
                 file.read()
             recomdisehns = "d" #anlsist(file)
@@ -59,11 +61,11 @@ def main():
     print("Server is up and running")
     Server1 = Server()
 
-    while(True):
-        client_socket, client_address = server_socket.accept()
-        client_thread = threading.Thread(target=Server1.hendel, args=(client_socket, client_address))
-        client_thread.start()
-    server_socket.close()
+    #while(True):
+    client_socket, client_address = server_socket.accept()
+    client_thread = threading.Thread(target=Server1.hendel, args=(client_socket, client_address))
+    client_thread.start()
+    #server_socket.close()
     
 if __name__ == "__main__":
     main()

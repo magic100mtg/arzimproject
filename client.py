@@ -32,10 +32,12 @@ def extract_packet_info(pkt):
 def sendsniffpack(my_socket):
     enclient = ne.encrypted_client()
     enc_aes_key_received = ne.getdata(my_socket)["data"]
-    aes_key_iv = enclient.RSA_decrypt(base64.b64decode(enc_aes_key_received))
-    aes_key = aes_key_iv[:16]
-    iv = aes_key_iv[16:]
-
+    print(enc_aes_key_received)
+    aes_key_iv = json.loads((enclient.RSA_decrypt(base64.b64decode(enc_aes_key_received))).decode("utf-8"))
+    print(aes_key_iv)
+    aes_key = base64.b64decode(aes_key_iv["aes_key"])
+    iv = base64.b64decode(aes_key_iv["iv"])
+    print(iv, len(iv), aes_key, len(aes_key))
     enclient.set_ARS_key(aes_key, iv)
 
     snif = 100
@@ -45,9 +47,11 @@ def sendsniffpack(my_socket):
     for pkt in packets:
         info = extract_packet_info(pkt)
         packet_data.append(info)
-    #print(packet_data)
-
-    enclient.send_encrypt(packet_data, "headersniff")
+    
+    print(packet_data)
+    #to_send = json.dumps(packet_data)
+    
+    enclient.send_encrypt(my_socket, packet_data, "headersniff")
     print("File sent successfully!")
     
 
@@ -75,9 +79,9 @@ def main():
     my_socket = socket.socket()
     my_socket.connect(("127.0.0.1", 8820))
     
-    while(True):
-        sendsniff = threading.Thread(target=sendsniffpack, args=(my_socket,))
-        sendsniff.start()
+    #while(True):
+    sendsniff = threading.Thread(target=sendsniffpack, args=(my_socket,))
+    sendsniff.start()
     #lisentoreq = threading.Thread(target=liesenforrecomdishens, args=(my_socket,))
     #lisentoreq.start()
 
@@ -89,7 +93,6 @@ def main():
     #     sendsniffpack(my_socket) #call onl wit te eder, need to pass it?
     #if data["header"] == "headerreq":
     #     askforrecomdishens(my_socket, data)
-    my_socket.close()
 
 if __name__ == "__main__":
     main()

@@ -16,33 +16,36 @@ def start_RSA(): #do on your dvice
     enserver.RSA_start()
     
 
-def recvall(sock : socket.socket, length : int) -> dict:
+def recvall(sock : socket.socket, length : int) -> bytes:
     data = b""
     while len(data) < length: 
         chunk = sock.recv(length - len(data))
         if not chunk:
             raise ConnectionError("Connection closed before all data was received.")
+            sock.close()
         data += chunk
-    in_json = json.loads(data.decode('utf-8'))
-    return in_json
+    return data
 
-def sendata(sock: socket.socket, data:str, header = "deiff"):
+def getdata(sock) -> dict:
+    length = int.from_bytes(recvall(sock, 4), 'big')
+    data = recvall(sock, length)
+    return json.loads(data.decode('utf-8'))
+
+def sendata(sock: socket.socket, data: str, header = "deiff"):
     print(header)
     if header in ('headersniff', "deiff", "pubkey"):
         to_send = (json.dumps({"header": header, "data": data})).encode('utf-8')
         length = (len(to_send)).to_bytes(4, 'big')
-        sock.send(length + to_send)
+        sock.sendall(length + to_send)
     elif(header == "headerreq"):
         to_send = (json.dumps({"header": header, "data": None})).encode('utf-8')
         length = (len(to_send)).to_bytes(4, 'big')
-        sock.send(length + to_send)
+        sock.sendall(length + to_send)
     else:
         print("invaled header")
         #sock.send(length + data)
 
-def getdata(sock):
-    length = int.from_bytes(recvall(sock, 4), 'big')
-    return recvall(sock, length)
+
 
 def getheader(sock):
     return "h"
@@ -71,11 +74,19 @@ class encrypt:
         AES_cipher = AES.new(base64.b64decode(iv_and_aes_kay["aes_key"]), AES.MODE_CBC, base64.b64decode(iv_and_aes_kay["iv"]))
         msg = pad(data.encode("utf-8"), 16)
         ciphertext = AES_cipher.encrypt(msg)
-        ciphertext_in_str = ciphertext.decode("utf-8")
+        ciphertext_in_str = base64.b64encode(ciphertext).decode("utf-8")
         return ciphertext_in_str
 
     def AES_decrypt(self, encrypt_data, iv_and_aes_kay):
-        AES_cipher = AES.new(base64.b64decode(iv_and_aes_kay["aes_key"]), AES.MODE_CBC, base64.b64decode(iv_and_aes_kay["iv"]))
+        if isinstance(encrypt_data, str):
+            encrypt_data = base64.b64decode(encrypt_data)  # המרת סטרינג לבייטים
+
+        AES_cipher = AES.new(
+        base64.b64decode(iv_and_aes_kay["aes_key"]),
+        AES.MODE_CBC,
+        base64.b64decode(iv_and_aes_kay["iv"])
+        )
+
         pad_data = AES_cipher.decrypt(encrypt_data)
         return unpad(pad_data, 16)
 
@@ -91,7 +102,7 @@ class encrypt:
     #def send_pubkey(self, sock):
     #    sendata(sock = sock, data = encrypt.RSA_get_pubkey(self), header = "pubkey")
 
-    def RSA_encrypt(self, data, publickey):
+    def RSA_encrypt(self, data: bytes, publickey):
         rsa_key = RSA.import_key(publickey)
         rsa_cipher = PKCS1_OAEP.new(rsa_key)
         enc_msg = rsa_cipher.encrypt(data)
@@ -106,9 +117,11 @@ class encrypt:
 class encrypted_server(encrypt):
     def __init__(self):
           # Create an instance of Encrypt class
-        self.aes_key, self.iv = self.AES_start()
+        self.aes_key = get_random_bytes(16) 
+        self.iv = get_random_bytes(16)
+        #self.aes_key, self.iv = self.AES_start()
 
-        self.iv_and_aes_key_b64 = {"aes_key": base64.b64encode(self.aes_key).decode(), "iv": base64.b64encode(self.iv).decode()}
+        self.iv_and_aes_key_b64 = {"aes_key": base64.b64encode(self.aes_key).decode('utf-8'), "iv": base64.b64encode(self.iv).decode('utf-8')}
         super().__init__()  # Call parent constructor
         self.enc_rsa_pubkey = "enc_rsa_pubkey_server.pem"
         self.enc_rsa_privatekey = "enc_rsa_privatekey_server.pem"
@@ -118,10 +131,20 @@ class encrypted_server(encrypt):
         sendata(sock, ciphertext, header)
     
     def reciv_AES_encrypt(self, sock):
-        data = getdata(sock)
-        decrypt_data =  self.AES_decrypt(data, self.iv_and_aes_key_b64)
-        parsed_data = json.loads(decrypt_data.decode('utf-8'))
-        return parsed_data
+        received_json = getdata(sock)  
+        encrypted_data = received_json["data"] 
+
+        try:
+            decrypted_message = self.AES_decrypt(encrypted_data, self.iv_and_aes_key_b64)
+            if decrypted_message is None:
+                print("Error: Decryption failed and returned None.")
+                return None
+            parsed_message = json.loads(decrypted_message.decode('utf-8'))
+        
+            return parsed_message 
+        except json.JSONDecodeError:
+            print("Error: Decryption result is not valid JSON.")
+            return None
         
 class encrypted_client(encrypt):
     def __init__(self):
@@ -134,8 +157,10 @@ class encrypted_client(encrypt):
     def set_ARS_key(self, aes_key:bytes, iv:bytes):
         self.ARS_key = {"aes_key": base64.b64encode(aes_key).decode(), "iv": base64.b64encode(iv).decode()}
     
-    def send_encrypt(self , sock, data:str, header = "deiff"):
-        ciphertext = self.AES_encrypt(data, self.ARS_key)
+    def send_encrypt(self , sock:socket.socket, data , header = "deiff"): #data need to be Json
+        message = json.dumps({"header": header, "data": data})
+
+        ciphertext = self.AES_encrypt(message, self.ARS_key)
         sendata(sock, ciphertext, header)
     
     def reciv_encrypt(self, sock):
