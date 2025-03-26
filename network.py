@@ -18,32 +18,77 @@ def start_RSA(): #do on your dvice
 
 def recvall(sock : socket.socket, length : int) -> bytes:
     data = b""
-    while len(data) < length: 
-        chunk = sock.recv(length - len(data))
-        if not chunk:
-            raise ConnectionError("Connection closed before all data was received.")
-            sock.close()
+    while len(data) < length:
+        try:
+            chunk = sock.recv(length - len(data))
+            if not chunk:
+                sock.close()
+                raise ConnectionError("Connection closed before all data was received.")
+        except ConnectionError as e:
+            print(f"Error: {e}")
+            return b""
         data += chunk
     return data
 
-def getdata(sock) -> dict:
-    length = int.from_bytes(recvall(sock, 4), 'big')
-    data = recvall(sock, length)
-    return json.loads(data.decode('utf-8'))
+def getdata(sock) -> dict | None:
+    length_data = recvall(sock, 4)
+    if not length_data:
+        print("Client closed connection before sending data length.")
+        return None
 
-def sendata(sock: socket.socket, data: str, header = "deiff"):
-    print(header)
-    if header in ('headersniff', "deiff", "pubkey"):
-        to_send = (json.dumps({"header": header, "data": data})).encode('utf-8')
-        length = (len(to_send)).to_bytes(4, 'big')
-        sock.sendall(length + to_send)
-    elif(header == "headerreq"):
-        to_send = (json.dumps({"header": header, "data": None})).encode('utf-8')
-        length = (len(to_send)).to_bytes(4, 'big')
+    try:
+        length = int.from_bytes(length_data, 'big')
+        if length <= 0:
+            print("Invalid data length received.")
+            return None
+
+        data = recvall(sock, length)
+        if not data:
+            print("Client closed connection before sending full data.")
+            return None
+
+        return json.loads(data.decode('utf-8'))
+    except (json.JSONDecodeError, ValueError) as e:
+        print(f"Invalid JSON data received: {e}")
+        return None
+
+# def sendata(sock: socket.socket, data: str, header = "deiff"):
+#     if header in ("headersniff", "deiff", "pubkey"):
+#         to_send = (json.dumps({"header": header, "data": data})).encode('utf-8')
+#         length = (len(to_send)).to_bytes(4, 'big')
+#         sock.sendall(length + to_send)
+#     elif(header == "headerreq"):
+#         to_send = (json.dumps({"header": header, "data": None})).encode('utf-8')
+#         length = (len(to_send)).to_bytes(4, 'big')
+#         sock.sendall(length + to_send)
+#     else:
+#         print("invalid header")
+#         to_send = (json.dumps({"header": "invalid", "data": None})).encode('utf-8')
+#         length = (len(to_send)).to_bytes(4, 'big')
+#         sock.sendall(length + to_send)
+
+def sendata(sock: socket.socket, data: str, header="deiff"):
+    # Define allowed headers including the new ones.
+    allowed_headers = (
+        "headersniff", "deiff", "pubkey", "headerreq",
+        "login", "measurement_update", "get_all_measurements",
+        "request_recommendations", "response"
+    )
+    
+    if header in allowed_headers:
+        # For headerreq, always send data as None
+        if header == "headerreq":
+            message = {"header": header, "data": None}
+        else:
+            message = {"header": header, "data": data}
+        to_send = json.dumps(message).encode('utf-8')
+        length = len(to_send).to_bytes(4, 'big')
         sock.sendall(length + to_send)
     else:
-        print("invaled header")
-        #sock.send(length + data)
+        print("invalid header")
+        to_send = json.dumps({"header": "invalid", "data": None}).encode('utf-8')
+        length = len(to_send).to_bytes(4, 'big')
+        sock.sendall(length + to_send)
 
 
 
@@ -72,7 +117,8 @@ class encrypt:
 
     def AES_encrypt(self, data:str, iv_and_aes_kay) -> str:
         AES_cipher = AES.new(base64.b64decode(iv_and_aes_kay["aes_key"]), AES.MODE_CBC, base64.b64decode(iv_and_aes_kay["iv"]))
-        msg = pad(data.encode("utf-8"), 16)
+        data_encode = data.encode("utf-8")
+        msg = pad(data_encode, 16)
         ciphertext = AES_cipher.encrypt(msg)
         ciphertext_in_str = base64.b64encode(ciphertext).decode("utf-8")
         return ciphertext_in_str
@@ -126,25 +172,41 @@ class encrypted_server(encrypt):
         self.enc_rsa_pubkey = "enc_rsa_pubkey_server.pem"
         self.enc_rsa_privatekey = "enc_rsa_privatekey_server.pem"
 
-    def send_AES_encrypt(self , sock, data:str, header = "deiff"):
-        ciphertext = self.AES_encrypt(data, self.iv_and_aes_key_b64)
+    def send_AES_encrypt(self , sock, data: str, header = "deiff"):
+        message = json.dumps({"header": header, "data": data})
+        ciphertext = self.AES_encrypt(message, self.iv_and_aes_key_b64)
         sendata(sock, ciphertext, header)
     
     def reciv_AES_encrypt(self, sock):
-        received_json = getdata(sock)  
-        encrypted_data = received_json["data"] 
+        received_json = getdata(sock)
+    
+        if not received_json or "data" not in received_json:
+            print("No valid data received. Closing connection.")
+            return None
+
+        encrypted_data = received_json["data"]
+    
+        if encrypted_data is None:
+            print("Error: Encrypted data is None.")
+            return None
 
         try:
             decrypted_message = self.AES_decrypt(encrypted_data, self.iv_and_aes_key_b64)
-            if decrypted_message is None:
-                print("Error: Decryption failed and returned None.")
+            if not decrypted_message: 
+                print("Error: Decryption failed and returned None or empty.")
                 return None
-            parsed_message = json.loads(decrypted_message.decode('utf-8'))
-        
-            return parsed_message 
-        except json.JSONDecodeError:
-            print("Error: Decryption result is not valid JSON.")
+
+            try:
+                parsed_message = json.loads(decrypted_message.decode('utf-8'))
+                return parsed_message
+            except json.JSONDecodeError:
+                print(f"Error: Decryption result is not valid JSON. Data: {decrypted_message}")
+                return None
+
+        except Exception as e:
+            print(f"Unexpected error during decryption: {e}")
             return None
+
         
 class encrypted_client(encrypt):
     def __init__(self):
@@ -159,15 +221,38 @@ class encrypted_client(encrypt):
     
     def send_encrypt(self , sock:socket.socket, data , header = "deiff"): #data need to be Json
         message = json.dumps({"header": header, "data": data})
-
         ciphertext = self.AES_encrypt(message, self.ARS_key)
         sendata(sock, ciphertext, header)
     
     def reciv_encrypt(self, sock):
-        data = getdata(sock)
-        decrypt_data =  self.AES_decrypt(data, self.ARS_key)
-        parsed_data = json.loads(decrypt_data.decode('utf-8'))
-        return parsed_data
+        received_json = getdata(sock)
+    
+        if not received_json or "data" not in received_json:
+            print("No valid data received. Closing connection.")
+            return None
+
+        encrypted_data = received_json["data"]
+    
+        if encrypted_data is None:
+            print("Error: Encrypted data is None.")
+            return None
+
+        try:
+            decrypted_message = self.AES_decrypt(encrypted_data, self.ARS_key)
+            if not decrypted_message: 
+                print("Error: Decryption failed and returned None or empty.")
+                return None
+
+            try:
+                parsed_message = json.loads(decrypted_message.decode('utf-8'))
+                return parsed_message
+            except json.JSONDecodeError:
+                print(f"Error: Decryption result is not valid JSON. Data: {decrypted_message}")
+                return None
+
+        except Exception as e:
+            print(f"Unexpected error during decryption: {e}")
+            return None
     
     
     
