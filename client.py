@@ -111,23 +111,28 @@ from scapy.all import sniff
 from scapy.layers.inet import IP, TCP, UDP
 import network as ne  # Your network module with encryption routines
 
+
 def extract_packet_info(pkt):
-    # Extract relevant info from the packet to serve as measurement data
+    """
+    Extracts relevant details from a packet:
+      - src_ip, dst_ip, protocol, dst_port, flags
+    """
     if IP in pkt:
-        src_ip = pkt[IP].src
-        if TCP in pkt:
-            dst_port = pkt[TCP].dport
-            protocol = "TCP"
-        elif UDP in pkt:
-            dst_port = pkt[UDP].dport
-            protocol = "UDP"
-        else:
-            return None
-        return {
-            "src_ip": src_ip,
-            "dst_port": dst_port,
-            "protocol": protocol
+        info = {
+            "src_ip": pkt[IP].src,
+            "dst_ip": pkt[IP].dst,
+            "protocol": None,
+            "dst_port": None,
+            "flags": None
         }
+        if TCP in pkt:
+            info["protocol"] = "TCP"
+            info["dst_port"] = pkt[TCP].dport
+            info["flags"]    = str(pkt[TCP].flags)
+        elif UDP in pkt:
+            info["protocol"] = "UDP"
+            info["dst_port"] = pkt[UDP].dport
+        return info
     return None
 
 def perform_handshake(client_socket, enclient: ne.encrypted_client):
@@ -181,11 +186,7 @@ def send_measurement_update(client_socket, enclient: ne.encrypted_client, userna
     """
     print("[INFO] Sniffing network packets for measurement data...")
     packets = sniff(count=100, filter="ip")
-    measurement_data = []
-    for pkt in packets:
-        info = extract_packet_info(pkt)
-        if info:
-            measurement_data.append(info)
+    measurement_data = [extract_packet_info(p) for p in packets if extract_packet_info(p)]
     print("[INFO] Measurement data captured:", measurement_data)
     
     meas_msg = {
@@ -193,6 +194,7 @@ def send_measurement_update(client_socket, enclient: ne.encrypted_client, userna
             "token": token,
             "measurement": measurement_data
     }
+    print(meas_msg)
     enclient.send_encrypt(client_socket, meas_msg, "measurement_update")
     response = enclient.reciv_encrypt(client_socket)
     print("[INFO] Server response for measurement update:")
@@ -227,7 +229,6 @@ def main():
         username, token = login(client_socket, enclient)
         if not username or not token:
             return
-        
         # Step 3: Start a thread to periodically send measurement updates (data captured via scapy).
         def measurement_loop():
             while True:

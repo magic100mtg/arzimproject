@@ -172,7 +172,7 @@ class encrypted_server(encrypt):
         self.enc_rsa_pubkey = "enc_rsa_pubkey_server.pem"
         self.enc_rsa_privatekey = "enc_rsa_privatekey_server.pem"
 
-    def send_AES_encrypt(self , sock, data: str, header = "deiff"):
+    def send_AES_encrypt(self , sock, data, header = "deiff"):
         message = json.dumps({"header": header, "data": data})
         ciphertext = self.AES_encrypt(message, self.iv_and_aes_key_b64)
         sendata(sock, ciphertext, header)
